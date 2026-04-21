@@ -33,7 +33,7 @@ jobs:
         run: |
           mkdir -p ~/.android/cmdline-tools
           cd ~/.android/cmdline-tools
-          curl -fsSL "https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip" -o cmdline.zip
+          curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o cmdline.zip
           unzip -q cmdline.zip
           mv cmdline-tools latest
           rm cmdline.zip
