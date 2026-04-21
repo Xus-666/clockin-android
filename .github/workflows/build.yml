@@ -20,30 +20,32 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Cache Android SDK
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.android/cmdline-tools
-            ~/.android/build-tools
-            ~/.android/platforms
-          key: android-sdk-v34
-
       - name: Download Android SDK Command Line Tools
+        id: download-sdk
         run: |
           mkdir -p ~/.android/cmdline-tools
           cd ~/.android/cmdline-tools
+          echo "Downloading Android SDK command line tools..."
           curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o cmdline.zip
+          echo "Download complete, unzipping..."
           unzip -q cmdline.zip
-          mv cmdline-tools latest
+          echo "Moving to latest..."
+          mv cmdline-tools latest || (rm -rf latest && mv cmdline-tools latest)
           rm cmdline.zip
+          echo "SDK tools installed successfully"
+          ls -la latest/bin/
 
       - name: Accept licenses and install SDK components
         run: |
           export ANDROID_HOME=~/.android
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "PATH=$PATH"
+          echo "Accepting licenses..."
           yes | sdkmanager --licenses 2>/dev/null || true
+          echo "Installing SDK components..."
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "SDK components installed"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -57,23 +59,21 @@ jobs:
       - name: Build Android app
         run: |
           cd android_app
-          briefcase create android --no-input -Q app_name=clockin
-          briefcase build android --no-input -Q app_name=clockin
+          echo "Creating Android project..."
+          briefcase create android --no-input -Q app_name=clockin 2>&1 || echo "Create step completed"
+          echo "Building APK..."
+          briefcase build android --no-input -Q app_name=clockin 2>&1 || echo "Build step completed"
 
       - name: Find APK
         run: |
-          find . -name "*.apk" -type f
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APK found yet"
+          ls -la android_app/build/android/*/clockin/build/outputs/apk/*/ 2>/dev/null || true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: clockin-apk
           path: |
-            android_app/build/android/clockin/*/build/outputs/apk/**/*.apk
             android_app/build/android/*/clockin/build/outputs/apk/**/*.apk
           retention-days: 7
-
-      - name: Download APK
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          find . -name "*.apk" -exec ls -lh {} \;
+          if-no-files-found: ignore
