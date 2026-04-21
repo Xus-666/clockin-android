@@ -1,0 +1,79 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Android SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/cmdline-tools
+            ~/.android/build-tools
+            ~/.android/platforms
+          key: android-sdk-v34
+
+      - name: Download Android SDK Command Line Tools
+        run: |
+          mkdir -p ~/.android/cmdline-tools
+          cd ~/.android/cmdline-tools
+          curl -fsSL "https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip" -o cmdline.zip
+          unzip -q cmdline.zip
+          mv cmdline-tools latest
+          rm cmdline.zip
+
+      - name: Accept licenses and install SDK components
+        run: |
+          export ANDROID_HOME=~/.android
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          yes | sdkmanager --licenses 2>/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install BeeWare
+        run: |
+          pip install briefcase toga requests -q
+
+      - name: Build Android app
+        run: |
+          cd android_app
+          briefcase create android --no-input -Q app_name=clockin
+          briefcase build android --no-input -Q app_name=clockin
+
+      - name: Find APK
+        run: |
+          find . -name "*.apk" -type f
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: clockin-apk
+          path: |
+            android_app/build/android/clockin/*/build/outputs/apk/**/*.apk
+            android_app/build/android/*/clockin/build/outputs/apk/**/*.apk
+          retention-days: 7
+
+      - name: Download APK
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          find . -name "*.apk" -exec ls -lh {} \;

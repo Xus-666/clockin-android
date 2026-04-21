@@ -1,0 +1,28 @@
+[build-system]
+requires = ["briefcase==0.4.1"]
+build-backend = "briefcase.integrations.macOS:briefcase_macOS_app"
+
+[project]
+bundle = "com.example"
+app_name = "clockin"
+formal_name = "自动打卡工具"
+project_version = "1.0.0"
+description = "自动打卡工具 - Python Android App"
+license = "MIT"
+
+[tool.briefcase]
+project_name = "自动打卡工具"
+bundle = "com.example.clockin"
+app_name = "clockin"
+organization = "Example"
+version = "1.0.0"
+description = "自动打卡工具"
+license = "MIT"
+
+[tool.briefcase.app.android]
+requires = ["requests"]
+formal_name = "自动打卡工具"
+bundle = "com.example.clockin"
+app_name = "clockin"
+icon = "src/clockin/resources/clockin"
+sources = ["src"]
