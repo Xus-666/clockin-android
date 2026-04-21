@@ -20,19 +20,40 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Install system dependencies for BeeWare/Toga
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libgdk-pixbuf2.0-dev \
+            libffi-dev \
+            pkg-config \
+            python3-dev \
+            gir1.2-gtk-3.0 \
+            libnotify-dev \
+            libxtst-dev \
+            libjpeg-dev \
+            libpng-dev \
+            zlib1g-dev \
+            unzip \
+            curl \
+            zip
+
       - name: Download Android SDK Command Line Tools
-        id: download-sdk
         run: |
           mkdir -p ~/.android/cmdline-tools
           cd ~/.android/cmdline-tools
           echo "Downloading Android SDK command line tools..."
           curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o cmdline.zip
-          echo "Download complete, unzipping..."
+          echo "Extracting..."
           unzip -q cmdline.zip
-          echo "Moving to latest..."
-          mv cmdline-tools latest || (rm -rf latest && mv cmdline-tools latest)
-          rm cmdline.zip
-          echo "SDK tools installed successfully"
+          if [ -d "cmdline-tools" ]; then
+            mv cmdline-tools latest
+          else
+            mkdir -p latest && mv cmdline-tools/. latest/ 2>/dev/null || true
+          fi
+          rm -f cmdline.zip
           ls -la latest/bin/
 
       - name: Accept licenses and install SDK components
@@ -40,34 +61,36 @@ jobs:
           export ANDROID_HOME=~/.android
           export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
           echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "PATH=$PATH"
-          echo "Accepting licenses..."
           yes | sdkmanager --licenses 2>/dev/null || true
-          echo "Installing SDK components..."
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          echo "SDK components installed"
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install BeeWare
+      - name: Install BeeWare and dependencies
         run: |
-          pip install briefcase toga requests -q
+          pip install --upgrade pip setuptools wheel
+          pip install briefcase toga requests -q 2>&1 | tail -5
+          echo "=== BeeWare installed ==="
+          python -c "import briefcase; print('briefcase', briefcase.__version__)"
+          python -c "import toga; print('toga', toga.__version__)"
 
       - name: Build Android app
         run: |
           cd android_app
-          echo "Creating Android project..."
-          briefcase create android --no-input -Q app_name=clockin 2>&1 || echo "Create step completed"
-          echo "Building APK..."
-          briefcase build android --no-input -Q app_name=clockin 2>&1 || echo "Build step completed"
+          echo "=== Creating Android project ==="
+          briefcase create android --no-input -Q app_name=clockin 2>&1 | tail -10
+          echo "=== Building APK ==="
+          briefcase build android --no-input -Q app_name=clockin 2>&1 | tail -20
 
       - name: Find APK
         run: |
+          echo "=== Searching for APK files ==="
           find . -name "*.apk" -type f 2>/dev/null || echo "No APK found yet"
           ls -la android_app/build/android/*/clockin/build/outputs/apk/*/ 2>/dev/null || true
+          ls -la android_app/build/android/*/clockin/build/outputs/apk/debug/ 2>/dev/null || true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -76,4 +99,4 @@ jobs:
           path: |
             android_app/build/android/*/clockin/build/outputs/apk/**/*.apk
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: warn
