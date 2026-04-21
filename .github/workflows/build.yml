@@ -43,25 +43,25 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install BeeWare briefcase only
+      - name: Install BeeWare briefcase
         run: |
           pip install briefcase requests -q
           python -c "import briefcase; print('briefcase', briefcase.__version__)"
 
       - name: Build Android app
         run: |
-          cd android_app
+          REPO_DIR=$(pwd)
+          echo "Repo dir: $REPO_DIR"
+          ls -la "$REPO_DIR"
+          cd "$REPO_DIR/android_app"
           echo "Creating Android project..."
           briefcase create android --no-input 2>&1 | tail -15
           echo ""
           echo "Building APK..."
           briefcase build android --no-input 2>&1 | tail -20
-
-      - name: Find APK
-        run: |
-          echo "=== APK files ==="
-          find . -name "*.apk" -type f 2>/dev/null
-          ls -la android_app/build/android/*/clockin/build/outputs/apk/*/ 2>/dev/null || true
+          echo ""
+          echo "Build complete. APK files:"
+          find "$REPO_DIR/android_app" -name "*.apk" -type f 2>/dev/null
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
